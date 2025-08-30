@@ -31,6 +31,8 @@ setInterval(async () => {
 
     for (const id in allSchedules) {
       const task = allSchedules[id];
+            // Parse the stored schedule time
+      const taskTime = new Date(task.time);
        console.log(
         `📌 Task [${id}] -> scheduled: ${task.time}, parsed: ${taskTime.toISOString()}, sent: ${task.sent}`
       );
