@@ -23,6 +23,7 @@ app.use(bodyParser.json());
 // ---------------- BACKGROUND CHECK ----------------
 setInterval(async () => {
   const now = new Date();
+  console.log("⏰ Checking schedules at:", now.toISOString());
 
   try {
     const snapshot = await scheduleRef.once("value");
@@ -30,7 +31,11 @@ setInterval(async () => {
 
     for (const id in allSchedules) {
       const task = allSchedules[id];
+       console.log(
+        `📌 Task [${id}] -> scheduled: ${task.time}, parsed: ${taskTime.toISOString()}, sent: ${task.sent}`
+      );
       if (!task.sent && new Date(task.time) <= now) {
+         console.log(`🚀 Sending notification for task ${id} at ${now.toISOString()}`);
         await sendNotification(task.title, task.body, task.topic);
 
         // Mark as sent in Firebase
