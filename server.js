@@ -22,7 +22,7 @@ app.use(bodyParser.json());
 
 // ---------------- BACKGROUND CHECK ----------------
 setInterval(async () => {
-  const now = new Date();
+  const now = new Date(); // UTC now
   console.log("⏰ Checking schedules at:", now.toISOString());
 
   try {
@@ -32,8 +32,8 @@ setInterval(async () => {
     for (const id in allSchedules) {
       const task = allSchedules[id];
 
-      // ✅ Parse in server local timezone
-      const taskTime = parseLocalTime(task.time);
+      // ✅ Parse as UTC
+      const taskTime = parseUtcTime(task.time);
 
       console.log(
         `📌 Task [${id}] -> scheduled: ${task.time}, parsed: ${taskTime.toISOString()}, sent: ${task.sent}`
@@ -51,6 +51,7 @@ setInterval(async () => {
     console.error("Error checking schedules:", err.message);
   }
 }, 60 * 1000);
+
 
 // ---------------- HELPER: SEND NOTIFICATION ----------------
 async function sendNotification(title, body, topic) {
@@ -223,38 +224,26 @@ app.post("/bulk-schedule", async (req, res) => {
 // ---------------- HELPER: Normalize Time ----------------
 // ---------------- HELPER: Normalize Time ----------------
 // Store schedule time in IST consistently
+// ---------------- HELPER: Normalize Time ----------------
+// Always store as UTC in DB
 function normalizeTime(input) {
   const parsed = new Date(input);
   if (isNaN(parsed.getTime())) {
     throw new Error("Invalid time format");
   }
-
-  // Force it into IST (Asia/Kolkata)
-  const offsetMs = 5.5 * 60 * 60 * 1000; // IST offset
-  const istTime = new Date(parsed.getTime() + offsetMs);
-
-  return (
-    istTime.getUTCFullYear() + "-" +
-    String(istTime.getUTCMonth() + 1).padStart(2, "0") + "-" +
-    String(istTime.getUTCDate()).padStart(2, "0") + "T" +
-    String(istTime.getUTCHours()).padStart(2, "0") + ":" +
-    String(istTime.getUTCMinutes()).padStart(2, "0") + ":00"
-  );
+  return parsed.toISOString(); // ✅ store in UTC always
 }
 
 // ---------------- HELPER: Parse Local Time ----------------
 // Convert stored IST string into UTC Date object for comparison
-function parseLocalTime(input) {
-  const [datePart, timePart] = input.split("T");
-  const [year, month, day] = datePart.split("-").map(Number);
-  const [hour, minute, second] = timePart.split(":").map(Number);
-
-  // Create as IST
-  const istDate = new Date(Date.UTC(year, month - 1, day, hour, minute, second || 0));
-
-  // Subtract IST offset to get equivalent UTC
-  const offsetMs = 5.5 * 60 * 60 * 1000;
-  return new Date(istDate.getTime() - offsetMs);
+// ---------------- HELPER: Normalize Time ----------------
+// Always store as UTC in DB
+function normalizeTime(input) {
+  const parsed = new Date(input);
+  if (isNaN(parsed.getTime())) {
+    throw new Error("Invalid time format");
+  }
+  return parsed.toISOString(); // ✅ store in UTC always
 }
 
 
