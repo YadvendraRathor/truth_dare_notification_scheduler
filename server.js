@@ -122,6 +122,42 @@ app.get("/schedule", async (req, res) => {
   }
 });
 
+// Update a scheduled notification
+app.put("/schedule/:id", async (req, res) => {
+  const { id } = req.params;
+  const { title, body, topic, time } = req.body;
+
+  try {
+    const normalizedTime = new Date(time).toISOString();
+
+    const scheduleUpdate = {
+      id,
+      title,
+      body,
+      topic: topic || "all",
+      time: normalizedTime,
+      sent: false
+    };
+
+    await scheduleRef.child(id).update(scheduleUpdate);
+
+    res.json({ success: true, schedule: scheduleUpdate });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+// Delete a scheduled notification
+app.delete("/schedule/:id", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    await scheduleRef.child(id).remove();
+    res.json({ success: true, message: `Schedule ${id} deleted` });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
 
 
 // Schedule new notification
