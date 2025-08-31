@@ -109,6 +109,19 @@ app.get("/history", async (req, res) => {
   }
 });
 
+// Get all schedules (pending + sent)
+app.get("/schedule", async (req, res) => {
+  try {
+    const snapshot = await scheduleRef.once("value");
+    const data = snapshot.val() || {};
+    const schedules = Object.values(data);
+    res.json(schedules);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
 
 // Schedule new notification
 // Schedule new notification
