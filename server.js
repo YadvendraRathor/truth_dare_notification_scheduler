@@ -22,18 +22,18 @@ app.use(bodyParser.json());
 // ---------------- BACKGROUND CHECK ----------------
 setInterval(async () => {
   try {
-    const now = new Date(); // UTC
-    console.log("⏰ Checking schedules at:", now.toISOString());
+    const now = getIST(); // ✅ always IST
+    console.log("⏰ Checking schedules at:", formatIST(now));
 
     const snapshot = await scheduleRef.once("value");
     const allSchedules = snapshot.val() || {};
 
     for (const id in allSchedules) {
       const task = allSchedules[id];
-      const scheduledTime = parseUtcTime(task.time);
+      const scheduledTime = parseISTTime(task.time);
 
       console.log(
-        `📌 Task [${id}] -> scheduled: ${task.time}, parsed: ${scheduledTime.toISOString()}, sent: ${task.sent}`
+        `📌 Task [${id}] -> scheduled: ${task.time}, parsed: ${formatIST(scheduledTime)}, sent: ${task.sent}`
       );
 
       if (!task.sent && scheduledTime <= now) {
@@ -64,7 +64,7 @@ async function sendNotification(title, body, topic) {
       title,
       body,
       topic: topic || "all",
-      time: new Date().toISOString(),
+      time: formatIST(getIST()), // ✅ save in IST
       type: "sent"
     });
 
@@ -104,7 +104,7 @@ app.post("/schedule", async (req, res) => {
   const id = uuidv4();
 
   try {
-    const normalizedTime = normalizeTime(time);
+    const normalizedTime = normalizeToIST(time);
 
     const schedule = { id, title, body, topic: topic || "all", time: normalizedTime, sent: false };
     await scheduleRef.child(id).set(schedule);
@@ -143,7 +143,7 @@ app.put("/schedule/:id", async (req, res) => {
     const snapshot = await scheduleRef.child(id).once("value");
     if (!snapshot.exists()) return res.status(404).json({ error: "Not found" });
 
-    const normalizedTime = normalizeTime(time);
+    const normalizedTime = normalizeToIST(time);
 
     const updated = { id, title, body, topic: topic || "all", time: normalizedTime, sent: false };
     await scheduleRef.child(id).set(updated);
@@ -177,7 +177,7 @@ app.post("/bulk-schedule", async (req, res) => {
 
     for (const item of bulk) {
       const id = uuidv4();
-      const normalizedTime = normalizeTime(item.time);
+      const normalizedTime = normalizeToIST(item.time);
 
       const schedule = {
         id,
@@ -209,18 +209,30 @@ app.post("/bulk-schedule", async (req, res) => {
 
 // ---------------- HELPER FUNCTIONS ----------------
 
-// Always store as UTC in DB
-function normalizeTime(input) {
+// Get IST Date object
+function getIST() {
+  const now = new Date();
+  const istOffset = 5.5 * 60 * 60 * 1000; // 5h30m in ms
+  return new Date(now.getTime() + istOffset - now.getTimezoneOffset() * 60000);
+}
+
+// Format IST datetime as string
+function formatIST(date) {
+  return date.toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
+}
+
+// Normalize any input to IST string
+function normalizeToIST(input) {
   const parsed = new Date(input);
   if (isNaN(parsed.getTime())) {
     throw new Error("Invalid time format");
   }
-  return parsed.toISOString(); // ✅ store in UTC
+  return formatIST(parsed);
 }
 
-// Parse UTC time safely
-function parseUtcTime(dateString) {
-  return new Date(dateString);
+// Parse IST time string back to Date
+function parseISTTime(str) {
+  return new Date(new Date(str).toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
 }
 
 // ---------------- START SERVER ----------------
