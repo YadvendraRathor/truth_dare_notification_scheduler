@@ -23,17 +23,17 @@ app.use(bodyParser.json());
 setInterval(async () => {
   try {
     const now = new Date(); // current UTC
-    console.log("⏰ Checking schedules at:", now.toISOString());
+    console.log("⏰ Checking schedules at (UTC):", now.toISOString(), " | (IST):", getISTISOString(now));
 
     const snapshot = await scheduleRef.once("value");
     const allSchedules = snapshot.val() || {};
 
     for (const id in allSchedules) {
       const task = allSchedules[id];
-      const scheduledTime = parseISTTime(task.time);
+      const scheduledTime = new Date(task.time); // always UTC ISO
 
       console.log(
-        `📌 Task [${id}] -> scheduled(raw): ${task.time}, parsed: ${scheduledTime.toISOString()}, sent: ${task.sent}`
+        `📌 Task [${id}] -> scheduled(UTC): ${scheduledTime.toISOString()}, scheduled(IST): ${getISTISOString(scheduledTime)}, sent: ${task.sent}`
       );
 
       if (!task.sent && scheduledTime <= now) {
@@ -62,7 +62,8 @@ async function sendNotification(title, body, topic) {
       title,
       body,
       topic: topic || "all",
-      time: getISTISOString(new Date()), // save in IST ISO format
+      timeUTC: new Date().toISOString(),
+      timeIST: getISTISOString(new Date()), // save IST for display
       type: "sent"
     });
 
@@ -102,7 +103,7 @@ app.post("/schedule", async (req, res) => {
   const id = uuidv4();
 
   try {
-    const normalizedTime = normalizeToIST(time);
+    const normalizedTime = new Date(time).toISOString(); // always UTC
 
     const schedule = { id, title, body, topic: topic || "all", time: normalizedTime, sent: false };
     await scheduleRef.child(id).set(schedule);
@@ -111,7 +112,8 @@ app.post("/schedule", async (req, res) => {
       title,
       body,
       topic: topic || "all",
-      time: normalizedTime,
+      timeUTC: normalizedTime,
+      timeIST: getISTISOString(new Date(normalizedTime)),
       type: "scheduled"
     });
 
@@ -125,21 +127,9 @@ app.post("/schedule", async (req, res) => {
 
 // Convert a JS Date to IST ISO string
 function getISTISOString(date) {
-  return new Date(date.getTime() + (5.5 * 60 * 60 * 1000)).toISOString().replace("Z", "+05:30");
-}
-
-// Normalize any input to IST ISO string
-function normalizeToIST(input) {
-  const parsed = new Date(input);
-  if (isNaN(parsed.getTime())) {
-    throw new Error("Invalid time format");
-  }
-  return getISTISOString(parsed);
-}
-
-// Parse IST ISO back to Date
-function parseISTTime(str) {
-  return new Date(str); // works because str is ISO with +05:30
+  return new Date(date.getTime() + (5.5 * 60 * 60 * 1000))
+    .toISOString()
+    .replace("Z", "+05:30");
 }
 
 // ---------------- START SERVER ----------------
