@@ -21,36 +21,28 @@ app.use(cors());
 app.use(bodyParser.json());
 
 // ---------------- BACKGROUND CHECK ----------------
+// schedule check
 setInterval(async () => {
-  const now = new Date(); // UTC now
-  console.log("⏰ Checking schedules at:", now.toISOString());
-
   try {
-    const snapshot = await scheduleRef.once("value");
-    const allSchedules = snapshot.val() || {};
+    const now = new Date(); // this is in UTC by default
+    console.log("⏰ Checking schedules at:", now.toISOString());
 
-    for (const id in allSchedules) {
-      const task = allSchedules[id];
-
-      // ✅ Parse as UTC
-      const taskTime = parseUtcTime(task.time);
-
+    for (const task of tasks) {
+      const scheduledTime = parseUtcTime(task.time); // use helper
       console.log(
-        `📌 Task [${id}] -> scheduled: ${task.time}, parsed: ${taskTime.toISOString()}, sent: ${task.sent}`
+        `📌 Task [${task.id}] -> scheduled: ${task.time}, parsed: ${scheduledTime.toISOString()}, sent: ${task.sent}`
       );
 
-      if (!task.sent && taskTime <= now) {
-        console.log(`🚀 Sending notification for task ${id} at ${now.toISOString()}`);
-        await sendNotification(task.title, task.body, task.topic);
-
-        // Mark as sent in Firebase
-        await scheduleRef.child(id).update({ sent: true });
+      if (!task.sent && scheduledTime <= now) {
+        console.log(`🚀 Sending task [${task.id}]`);
+        // your send logic here
+        task.sent = true;
       }
     }
   } catch (err) {
-    console.error("Error checking schedules:", err.message);
+    console.error("Error checking schedules:", err);
   }
-}, 60 * 1000);
+}, 60 * 1000); // run every minute
 
 
 // ---------------- HELPER: SEND NOTIFICATION ----------------
@@ -246,6 +238,11 @@ function normalizeTime(input) {
   return parsed.toISOString(); // ✅ store in UTC always
 }
 
+
+// helper function to parse UTC date string
+function parseUtcTime(dateString) {
+  return new Date(dateString); // ISO 8601 with Z (UTC) will be parsed correctly
+}
 
 // ---------------- START SERVER ----------------
 const PORT = process.env.PORT || 5000;
