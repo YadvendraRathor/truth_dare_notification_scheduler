@@ -99,12 +99,15 @@ app.get("/history", async (req, res) => {
 });
 
 // Schedule new notification
+// Schedule new notification
 app.post("/schedule", async (req, res) => {
   const { title, body, topic, time } = req.body;
   const id = uuidv4();
-  const schedule = { id, title, body, topic: topic || "all", time, sent: false };
 
   try {
+    const normalizedTime = normalizeTime(time);
+
+    const schedule = { id, title, body, topic: topic || "all", time: normalizedTime, sent: false };
     await scheduleRef.child(id).set(schedule);
 
     // Add to history as "scheduled"
@@ -112,15 +115,16 @@ app.post("/schedule", async (req, res) => {
       title,
       body,
       topic: topic || "all",
-      time,
+      time: normalizedTime,
       type: "scheduled"
     });
 
     res.json({ success: true, schedule });
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    res.status(400).json({ success: false, error: err.message });
   }
 });
+
 
 // Get all scheduled
 app.get("/schedule", async (req, res) => {
@@ -134,6 +138,7 @@ app.get("/schedule", async (req, res) => {
 });
 
 // Edit scheduled
+// Edit scheduled
 app.put("/schedule/:id", async (req, res) => {
   const { id } = req.params;
   const { title, body, topic, time } = req.body;
@@ -142,14 +147,17 @@ app.put("/schedule/:id", async (req, res) => {
     const snapshot = await scheduleRef.child(id).once("value");
     if (!snapshot.exists()) return res.status(404).json({ error: "Not found" });
 
-    const updated = { id, title, body, topic: topic || "all", time, sent: false };
+    const normalizedTime = normalizeTime(time);
+
+    const updated = { id, title, body, topic: topic || "all", time: normalizedTime, sent: false };
     await scheduleRef.child(id).set(updated);
 
     res.json({ success: true, schedule: updated });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(400).json({ success: false, error: err.message });
   }
 });
+
 
 // Delete scheduled
 app.delete("/schedule/:id", async (req, res) => {
@@ -161,6 +169,7 @@ app.delete("/schedule/:id", async (req, res) => {
   }
 });
 
+// Bulk schedule
 // Bulk schedule
 app.post("/bulk-schedule", async (req, res) => {
   const { schedules: bulk } = req.body;
@@ -174,12 +183,14 @@ app.post("/bulk-schedule", async (req, res) => {
 
     for (const item of bulk) {
       const id = uuidv4();
+      const normalizedTime = normalizeTime(item.time);
+
       const schedule = {
         id,
         title: item.title,
         body: item.body,
         topic: item.topic || "all",
-        time: item.time,
+        time: normalizedTime,
         sent: false
       };
 
@@ -198,9 +209,25 @@ app.post("/bulk-schedule", async (req, res) => {
 
     res.json({ success: true, schedules: created });
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    res.status(400).json({ success: false, error: err.message });
   }
 });
+
+
+
+
+
+// ---------------- HELPER: Normalize Time ----------------
+function normalizeTime(input) {
+  const parsed = new Date(input);
+  if (isNaN(parsed.getTime())) {
+    throw new Error("Invalid time format");
+  }
+  // Format as "YYYY-MM-DDTHH:mm:ssZ" (drop milliseconds)
+  return parsed.toISOString().slice(0, 19) + "Z";
+}
+
+
 
 // ---------------- START SERVER ----------------
 const PORT = process.env.PORT || 5000;
