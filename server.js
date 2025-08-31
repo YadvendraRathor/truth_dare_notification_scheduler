@@ -87,15 +87,23 @@ app.post("/send-notification", async (req, res) => {
 });
 
 // Get history
+// Get history
 app.get("/history", async (req, res) => {
   try {
     const snapshot = await historyRef.once("value");
     const data = snapshot.val() || {};
-    res.json(Object.values(data).reverse());
+
+    const history = Object.entries(data).map(([id, item]) => ({
+      id,            // preserve Firebase key
+      ...item        // spread existing fields
+    }));
+
+    res.json(history.reverse()); // latest first
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
+
 
 // Schedule new notification
 app.post("/schedule", async (req, res) => {
