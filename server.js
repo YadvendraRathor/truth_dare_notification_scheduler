@@ -31,13 +31,16 @@ setInterval(async () => {
 
     for (const id in allSchedules) {
       const task = allSchedules[id];
-            // Parse the stored schedule time
-      const taskTime = new Date(task.time);
-       console.log(
+
+      // ✅ Parse in server local timezone
+      const taskTime = parseLocalTime(task.time);
+
+      console.log(
         `📌 Task [${id}] -> scheduled: ${task.time}, parsed: ${taskTime.toISOString()}, sent: ${task.sent}`
       );
-      if (!task.sent && new Date(task.time) <= now) {
-         console.log(`🚀 Sending notification for task ${id} at ${now.toISOString()}`);
+
+      if (!task.sent && taskTime <= now) {
+        console.log(`🚀 Sending notification for task ${id} at ${now.toISOString()}`);
         await sendNotification(task.title, task.body, task.topic);
 
         // Mark as sent in Firebase
@@ -230,6 +233,14 @@ function normalizeTime(input) {
          String(parsed.getDate()).padStart(2, "0") + "T" +
          String(parsed.getHours()).padStart(2, "0") + ":" +
          String(parsed.getMinutes()).padStart(2, "0") + ":00";
+}
+
+function parseLocalTime(input) {
+  const [datePart, timePart] = input.split("T");
+  const [year, month, day] = datePart.split("-").map(Number);
+  const [hour, minute, second] = timePart.split(":").map(Number);
+
+  return new Date(year, month - 1, day, hour, minute, second || 0); // <-- local time
 }
 
 
