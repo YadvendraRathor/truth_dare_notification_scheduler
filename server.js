@@ -212,6 +212,14 @@ function getISTISOString(date) {
     .replace("Z", "+05:30");
 }
 
+
+//Making server active
+// Keep-alive / ping endpoint
+app.get("/ping", (req, res) => {
+  res.json({ status: "ok", message: "Server is active 🚀" });
+});
+
+
 // ---------------- START SERVER ----------------
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
