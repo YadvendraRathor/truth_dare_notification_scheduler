@@ -40,7 +40,8 @@ setInterval(async () => {
         console.log(`🚀 Sending notification for task [${id}]`);
         await sendNotification(task.title, task.body, task.topic);
 
-        await scheduleRef.child(id).update({ sent: true });
+        //await scheduleRef.child(id).update({ sent: true });
+        await scheduleRef.child(id).remove();
       }
     }
   } catch (err) {
