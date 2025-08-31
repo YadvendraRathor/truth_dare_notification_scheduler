@@ -223,8 +223,13 @@ function normalizeTime(input) {
   if (isNaN(parsed.getTime())) {
     throw new Error("Invalid time format");
   }
-  // Format as "YYYY-MM-DDTHH:mm:ssZ" (drop milliseconds)
-  return parsed.toISOString().slice(0, 19) + "Z";
+
+  // Store in local server timezone, drop "Z"
+  return parsed.getFullYear() + "-" +
+         String(parsed.getMonth() + 1).padStart(2, "0") + "-" +
+         String(parsed.getDate()).padStart(2, "0") + "T" +
+         String(parsed.getHours()).padStart(2, "0") + ":" +
+         String(parsed.getMinutes()).padStart(2, "0") + ":00";
 }
 
 
