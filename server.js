@@ -49,6 +49,7 @@ setInterval(async () => {
 }, 60 * 1000);
 
 // ---------------- HELPER: SEND NOTIFICATION ----------------
+// ---------------- HELPER: SEND NOTIFICATION ----------------
 async function sendNotification(title, body, topic) {
   try {
     const message = {
@@ -58,12 +59,15 @@ async function sendNotification(title, body, topic) {
 
     const response = await admin.messaging().send(message);
 
-    await historyRef.push({
+    // 👇 create a history record with id = Firebase key
+    const ref = historyRef.push();
+    await ref.set({
+      id: ref.key,   // store the Firebase key as id
       title,
       body,
       topic: topic || "all",
       timeUTC: new Date().toISOString(),
-      timeIST: getISTISOString(new Date()), // save IST for display
+      timeIST: getISTISOString(new Date()),
       type: "sent"
     });
 
@@ -72,6 +76,7 @@ async function sendNotification(title, body, topic) {
     console.error("Error sending notification:", err.message);
   }
 }
+
 
 // ---------------- API ROUTES ----------------
 
@@ -106,17 +111,33 @@ app.get("/history", async (req, res) => {
 
 
 // Schedule new notification
+// Schedule new notification
 app.post("/schedule", async (req, res) => {
   const { title, body, topic, time } = req.body;
-  const id = uuidv4();
 
   try {
     const normalizedTime = new Date(time).toISOString(); // always UTC
 
-    const schedule = { id, title, body, topic: topic || "all", time: normalizedTime, sent: false };
-    await scheduleRef.child(id).set(schedule);
+    // Generate a Firebase key for this schedule
+    const ref = scheduleRef.push();
+    const id = ref.key;
 
-    await historyRef.push({
+    const schedule = { 
+      id, 
+      title, 
+      body, 
+      topic: topic || "all", 
+      time: normalizedTime, 
+      sent: false 
+    };
+
+    // Save schedule with id included
+    await ref.set(schedule);
+
+    // Save to history with the same id
+    const historyRefPush = historyRef.push();
+    await historyRefPush.set({
+      id: historyRefPush.key, // id for history log
       title,
       body,
       topic: topic || "all",
@@ -130,6 +151,7 @@ app.post("/schedule", async (req, res) => {
     res.status(400).json({ success: false, error: err.message });
   }
 });
+
 
 // ---------------- HELPER FUNCTIONS ----------------
 
