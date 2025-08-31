@@ -221,28 +221,41 @@ app.post("/bulk-schedule", async (req, res) => {
 
 
 // ---------------- HELPER: Normalize Time ----------------
+// ---------------- HELPER: Normalize Time ----------------
+// Store schedule time in IST consistently
 function normalizeTime(input) {
   const parsed = new Date(input);
   if (isNaN(parsed.getTime())) {
     throw new Error("Invalid time format");
   }
 
-  // Store in local server timezone, drop "Z"
-  return parsed.getFullYear() + "-" +
-         String(parsed.getMonth() + 1).padStart(2, "0") + "-" +
-         String(parsed.getDate()).padStart(2, "0") + "T" +
-         String(parsed.getHours()).padStart(2, "0") + ":" +
-         String(parsed.getMinutes()).padStart(2, "0") + ":00";
+  // Force it into IST (Asia/Kolkata)
+  const offsetMs = 5.5 * 60 * 60 * 1000; // IST offset
+  const istTime = new Date(parsed.getTime() + offsetMs);
+
+  return (
+    istTime.getUTCFullYear() + "-" +
+    String(istTime.getUTCMonth() + 1).padStart(2, "0") + "-" +
+    String(istTime.getUTCDate()).padStart(2, "0") + "T" +
+    String(istTime.getUTCHours()).padStart(2, "0") + ":" +
+    String(istTime.getUTCMinutes()).padStart(2, "0") + ":00"
+  );
 }
 
+// ---------------- HELPER: Parse Local Time ----------------
+// Convert stored IST string into UTC Date object for comparison
 function parseLocalTime(input) {
   const [datePart, timePart] = input.split("T");
   const [year, month, day] = datePart.split("-").map(Number);
   const [hour, minute, second] = timePart.split(":").map(Number);
 
-  return new Date(year, month - 1, day, hour, minute, second || 0); // <-- local time
-}
+  // Create as IST
+  const istDate = new Date(Date.UTC(year, month - 1, day, hour, minute, second || 0));
 
+  // Subtract IST offset to get equivalent UTC
+  const offsetMs = 5.5 * 60 * 60 * 1000;
+  return new Date(istDate.getTime() - offsetMs);
+}
 
 
 // ---------------- START SERVER ----------------
