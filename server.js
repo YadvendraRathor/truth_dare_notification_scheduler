@@ -2,14 +2,13 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const admin = require("firebase-admin");
 const cors = require("cors");
-const fs = require("fs");
 const { v4: uuidv4 } = require("uuid");
 
-// Load Firebase Service Account Key
+// ---------------- FIREBASE INIT ----------------
 const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
-  databaseURL: "https://truth-and-dare-86f24-default-rtdb.firebaseio.com" // 🔹 Add your DB URL here
+  databaseURL: "https://truth-and-dare-86f24-default-rtdb.firebaseio.com"
 });
 
 const db = admin.database();
@@ -21,29 +20,35 @@ app.use(cors());
 app.use(bodyParser.json());
 
 // ---------------- BACKGROUND CHECK ----------------
-// schedule check
 setInterval(async () => {
   try {
-    const now = new Date(); // this is in UTC by default
+    const now = new Date(); // UTC
     console.log("⏰ Checking schedules at:", now.toISOString());
 
-    for (const task of tasks) {
-      const scheduledTime = parseUtcTime(task.time); // use helper
+    const snapshot = await scheduleRef.once("value");
+    const allSchedules = snapshot.val() || {};
+
+    for (const id in allSchedules) {
+      const task = allSchedules[id];
+      const scheduledTime = parseUtcTime(task.time);
+
       console.log(
-        `📌 Task [${task.id}] -> scheduled: ${task.time}, parsed: ${scheduledTime.toISOString()}, sent: ${task.sent}`
+        `📌 Task [${id}] -> scheduled: ${task.time}, parsed: ${scheduledTime.toISOString()}, sent: ${task.sent}`
       );
 
       if (!task.sent && scheduledTime <= now) {
-        console.log(`🚀 Sending task [${task.id}]`);
-        // your send logic here
-        task.sent = true;
+        console.log(`🚀 Sending notification for task [${id}]`);
+
+        await sendNotification(task.title, task.body, task.topic);
+
+        // ✅ Mark as sent in DB
+        await scheduleRef.child(id).update({ sent: true });
       }
     }
   } catch (err) {
     console.error("Error checking schedules:", err);
   }
 }, 60 * 1000); // run every minute
-
 
 // ---------------- HELPER: SEND NOTIFICATION ----------------
 async function sendNotification(title, body, topic) {
@@ -55,7 +60,6 @@ async function sendNotification(title, body, topic) {
 
     const response = await admin.messaging().send(message);
 
-    // Save to history
     await historyRef.push({
       title,
       body,
@@ -88,13 +92,12 @@ app.get("/history", async (req, res) => {
   try {
     const snapshot = await historyRef.once("value");
     const data = snapshot.val() || {};
-    res.json(Object.values(data).reverse()); // latest first
+    res.json(Object.values(data).reverse());
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// Schedule new notification
 // Schedule new notification
 app.post("/schedule", async (req, res) => {
   const { title, body, topic, time } = req.body;
@@ -106,7 +109,6 @@ app.post("/schedule", async (req, res) => {
     const schedule = { id, title, body, topic: topic || "all", time: normalizedTime, sent: false };
     await scheduleRef.child(id).set(schedule);
 
-    // Add to history as "scheduled"
     await historyRef.push({
       title,
       body,
@@ -121,7 +123,6 @@ app.post("/schedule", async (req, res) => {
   }
 });
 
-
 // Get all scheduled
 app.get("/schedule", async (req, res) => {
   try {
@@ -133,7 +134,6 @@ app.get("/schedule", async (req, res) => {
   }
 });
 
-// Edit scheduled
 // Edit scheduled
 app.put("/schedule/:id", async (req, res) => {
   const { id } = req.params;
@@ -154,7 +154,6 @@ app.put("/schedule/:id", async (req, res) => {
   }
 });
 
-
 // Delete scheduled
 app.delete("/schedule/:id", async (req, res) => {
   try {
@@ -165,7 +164,6 @@ app.delete("/schedule/:id", async (req, res) => {
   }
 });
 
-// Bulk schedule
 // Bulk schedule
 app.post("/bulk-schedule", async (req, res) => {
   const { schedules: bulk } = req.body;
@@ -209,39 +207,20 @@ app.post("/bulk-schedule", async (req, res) => {
   }
 });
 
+// ---------------- HELPER FUNCTIONS ----------------
 
-
-
-
-// ---------------- HELPER: Normalize Time ----------------
-// ---------------- HELPER: Normalize Time ----------------
-// Store schedule time in IST consistently
-// ---------------- HELPER: Normalize Time ----------------
 // Always store as UTC in DB
 function normalizeTime(input) {
   const parsed = new Date(input);
   if (isNaN(parsed.getTime())) {
     throw new Error("Invalid time format");
   }
-  return parsed.toISOString(); // ✅ store in UTC always
+  return parsed.toISOString(); // ✅ store in UTC
 }
 
-// ---------------- HELPER: Parse Local Time ----------------
-// Convert stored IST string into UTC Date object for comparison
-// ---------------- HELPER: Normalize Time ----------------
-// Always store as UTC in DB
-function normalizeTime(input) {
-  const parsed = new Date(input);
-  if (isNaN(parsed.getTime())) {
-    throw new Error("Invalid time format");
-  }
-  return parsed.toISOString(); // ✅ store in UTC always
-}
-
-
-// helper function to parse UTC date string
+// Parse UTC time safely
 function parseUtcTime(dateString) {
-  return new Date(dateString); // ISO 8601 with Z (UTC) will be parsed correctly
+  return new Date(dateString);
 }
 
 // ---------------- START SERVER ----------------
