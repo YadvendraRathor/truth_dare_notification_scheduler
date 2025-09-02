@@ -129,7 +129,7 @@ app.get("/schedule", async (req, res) => {
 // Update a scheduled notification
 app.put("/schedule/:id", async (req, res) => {
   const { id } = req.params;
-  const { title, body, topic, time } = req.body;
+  const { title, body, topic, time, image } = req.body;  // ✅ include image
 
   try {
     const normalizedTime = new Date(time).toISOString();
@@ -140,7 +140,8 @@ app.put("/schedule/:id", async (req, res) => {
       body,
       topic: topic || "all",
       time: normalizedTime,
-      sent: false
+      sent: false,
+      image: image || null  // ✅ store image
     };
 
     await scheduleRef.child(id).update(scheduleUpdate);
@@ -150,6 +151,7 @@ app.put("/schedule/:id", async (req, res) => {
     res.status(400).json({ success: false, error: err.message });
   }
 });
+
 
 // Delete a scheduled notification
 app.delete("/schedule/:id", async (req, res) => {
