@@ -38,7 +38,8 @@ setInterval(async () => {
 
       if (!task.sent && scheduledTime <= now) {
         console.log(`🚀 Sending notification for task [${id}]`);
-        await sendNotification(task.title, task.body, task.topic);
+        console.log("🔍 Scheduled Task Data:", task); // 👈 log everything
+        await sendNotification(task.title, task.body, task.topic,task.image);
 
         //await scheduleRef.child(id).update({ sent: true });
         await scheduleRef.child(id).remove();
