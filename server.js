@@ -51,10 +51,10 @@ setInterval(async () => {
 
 // ---------------- HELPER: SEND NOTIFICATION ----------------
 // ---------------- HELPER: SEND NOTIFICATION ----------------
-async function sendNotification(title, body, topic) {
+async function sendNotification(title, body, topic, image) {
   try {
     const message = {
-      notification: { title, body },
+      notification: { title, body, image }, // 👈 add image here
       topic: topic || "all",
     };
 
@@ -67,6 +67,7 @@ async function sendNotification(title, body, topic) {
       title,
       body,
       topic: topic || "all",
+      image: image || null,  // 👈 log the image too
       timeUTC: new Date().toISOString(),
       timeIST: getISTISOString(new Date()),
       type: "sent"
@@ -79,18 +80,20 @@ async function sendNotification(title, body, topic) {
 }
 
 
+
 // ---------------- API ROUTES ----------------
 
 // Send immediately
 app.post("/send-notification", async (req, res) => {
   try {
-    const { title, body, topic } = req.body;
-    const response = await sendNotification(title, body, topic);
+    const { title, body, topic, image } = req.body; // 👈 accept image
+    const response = await sendNotification(title, body, topic, image);
     res.json({ success: true, response });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
+
 
 // Get history
 // Get history
@@ -163,7 +166,7 @@ app.delete("/schedule/:id", async (req, res) => {
 // Schedule new notification
 // Schedule new notification
 app.post("/schedule", async (req, res) => {
-  const { title, body, topic, time } = req.body;
+  const { title, body, topic, time, image } = req.body;
 
   try {
     const normalizedTime = new Date(time).toISOString(); // always UTC
@@ -177,20 +180,21 @@ app.post("/schedule", async (req, res) => {
       title, 
       body, 
       topic: topic || "all", 
+      image: image || null,   // 👈 save image URL
       time: normalizedTime, 
       sent: false 
     };
 
-    // Save schedule with id included
     await ref.set(schedule);
 
     // Save to history with the same id
     const historyRefPush = historyRef.push();
     await historyRefPush.set({
-      id: historyRefPush.key, // id for history log
+      id: historyRefPush.key,
       title,
       body,
       topic: topic || "all",
+      image: image || null,   // 👈 log image too
       timeUTC: normalizedTime,
       timeIST: getISTISOString(new Date(normalizedTime)),
       type: "scheduled"
@@ -201,6 +205,7 @@ app.post("/schedule", async (req, res) => {
     res.status(400).json({ success: false, error: err.message });
   }
 });
+
 
 
 // ---------------- HELPER FUNCTIONS ----------------
